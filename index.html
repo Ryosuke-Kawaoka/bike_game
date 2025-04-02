@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>アクセル避けゲー FINAL</title>
+  <style>
+    body { margin: 0; background: #000; }
+    canvas {
+      display: block;
+      margin: 0 auto;
+    }
+    .controls {
+      position: fixed;
+      bottom: 0;
+      width: 100%;
+      display: flex;
+      justify-content: center;
+      z-index: 10;
+    }
+    .btn {
+      font-size: 30px;
+      padding: 20px 40px;
+      background: #333;
+      color: white;
+      text-align: center;
+      user-select: none;
+      border-radius: 10px;
+      margin: 10px;
+    }
+    .btn:active { background: #555; }
+  </style>
+</head>
+<body>
+  <canvas id="gameCanvas" width="400" height="600"></canvas>
+  <div class="controls">
+    <div id="jumpBtn" class="btn">アクセル！</div>
+  </div>
+
+  <script>
+    const canvas = document.getElementById("gameCanvas");
+    const ctx = canvas.getContext("2d");
+
+    const WIDTH = canvas.width;
+    const HEIGHT = canvas.height;
+
+    const player = {
+      x: 0,
+      y: HEIGHT - 120,
+      width: 60,
+      height: 100,
+      targetX: 0,
+      speed: 0,
+      isMoving: false,
+      moveDuration: 500,
+      moveStartTime: 0,
+      hasJumped: false
+    };
+
+    const obstacles = [];
+    const obstacleWidth = 60;
+    const obstacleHeight = 100;
+    const obstacleSpeed = 4;
+    const spawnInterval = 1000;
+
+    let gameOver = false;
+    let onRight = false;
+    let obstacleCount = 0;
+    const maxObstacles = 20;
+    let spawnTimer;
+    let overlayText = "";
+    let canPlay = false;
+    let avoidedCount = 0;
+
+    const roadImg = new Image();
+    const bikeImg = new Image();
+    const obstacleImg = new Image();
+    roadImg.src = "road.png";
+    bikeImg.src = "bike.png";
+    obstacleImg.src = "obstacle.png";
+
+    let bgY = 0;
+    const scrollSpeed = 2;
+
+    const leftX = WIDTH / 2 - 70;
+    const rightX = WIDTH / 2 + 20;
+
+    function showOverlay(text) {
+      overlayText = text;
+      setTimeout(() => {
+        overlayText = "";
+      }, 1000);
+    }
+
+    function updatePlayerPosition() {
+      const target = onRight ? leftX : rightX;
+      player.targetX = target;
+      player.moveStartTime = performance.now();
+      player.isMoving = true;
+
+      const distance = player.targetX - player.x;
+      player.speed = distance / (player.moveDuration / 16.67);
+    }
+
+    function jump() {
+      if (player.isMoving || gameOver || !canPlay) return;
+      onRight = !onRight;
+      updatePlayerPosition();
+      player.hasJumped = true;
+    }
+
+    const jumpBtn = document.getElementById("jumpBtn");
+    jumpBtn.addEventListener("touchstart", (e) => {
+      e.preventDefault();
+      jump();
+    }, { passive: false });
+    jumpBtn.addEventListener("click", () => jump());
+
+    function spawnObstacle() {
+      if (gameOver || obstacleCount >= maxObstacles) {
+        clearInterval(spawnTimer);
+        return;
+      }
+      const x = WIDTH / 2 - obstacleWidth / 2;
+      const y = -obstacleHeight;
+      const index = obstacleCount + 1;
+
+      obstacles.push({
+        x,
+        y,
+        width: obstacleWidth,
+        height: obstacleHeight,
+        vy: obstacleSpeed,
+        isChecked: false,
+        index
+      });
+
+      obstacleCount++;
+    }
+
+    function updatePlayerMovement() {
+      if (!player.isMoving) return;
+      const elapsed = performance.now() - player.moveStartTime;
+      if (elapsed >= player.moveDuration) {
+        player.x = player.targetX;
+        player.isMoving = false;
+      } else {
+        player.x += player.speed;
+      }
+    }
+
+    function isCollidingCircle(a, b) {
+      const ax = a.x + a.width / 2;
+      const ay = a.y + a.height / 2;
+      const bx = b.x + b.width / 2;
+      const by = b.y + b.height / 2;
+      const distance = Math.hypot(ax - bx, ay - by);
+      return distance < 40;
+    }
+
+    function update() {
+      if (gameOver) return;
+
+      updatePlayerMovement();
+
+      for (let obs of obstacles) {
+        obs.y += obs.vy;
+
+        // 衝突
+        if (isCollidingCircle(player, obs)) {
+          gameOver = true;
+          showOverlay("miss!!");
+          setTimeout(() => location.reload(), 1000);
+          return;
+        }
+
+        // プレイヤー通過時の判定
+        if (!obs.isChecked && obs.y > player.y - 10) {
+          obs.isChecked = true;
+
+          if (obs.index === 1) {
+            avoidedCount++; // 1個目はスルーOK
+          } else if (!player.hasJumped) {
+            gameOver = true;
+            showOverlay("miss!!");
+            setTimeout(() => location.reload(), 1000);
+            return;
+          } else {
+            avoidedCount++;
+            player.hasJumped = false;
+          }
+        }
+      }
+
+      while (obstacles.length > 0 && obstacles[0].y > HEIGHT) {
+        obstacles.shift();
+      }
+
+      if (avoidedCount === maxObstacles && !gameOver) {
+        gameOver = true;
+        showOverlay("clear!!");
+        setTimeout(() => location.reload(), 1000);
+      }
+    }
+
+    function draw() {
+      bgY += scrollSpeed;
+      if (bgY >= HEIGHT) bgY = 0;
+
+      ctx.drawImage(roadImg, 0, bgY - HEIGHT, WIDTH, HEIGHT);
+      ctx.drawImage(roadImg, 0, bgY, WIDTH, HEIGHT);
+
+      ctx.drawImage(bikeImg, player.x, player.y, player.width, player.height);
+
+      for (let obs of obstacles) {
+        ctx.drawImage(obstacleImg, obs.x, obs.y, obs.width, obs.height);
+      }
+
+      if (overlayText) {
+        ctx.fillStyle = "rgba(0,0,0,0.7)";
+        ctx.fillRect(0, HEIGHT / 2 - 50, WIDTH, 100);
+        ctx.fillStyle = "white";
+        ctx.font = "bold 48px sans-serif";
+        ctx.textAlign = "center";
+        ctx.fillText(overlayText, WIDTH / 2, HEIGHT / 2 + 15);
+      }
+    }
+
+    function gameLoop() {
+      update();
+      draw();
+      requestAnimationFrame(gameLoop);
+    }
+
+    updatePlayerPosition();
+    showOverlay("start!!");
+    setTimeout(() => {
+      canPlay = true;
+      spawnTimer = setInterval(spawnObstacle, spawnInterval);
+    }, 1000);
+    gameLoop();
+  </script>
+</body>
+</html>
