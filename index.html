@@ -33,16 +33,19 @@
     <div id="jumpBtn" class="btn">アクセル！</div>
   </div>
   <script>
-    const bgm = new Audio("bgm.mp3");
-    bgm.loop = true;
-    function playJumpSound() {
-      const sound = new Audio("jump.mp3");
-      sound.play();
-    }
-    const canvas = document.getElementById("gameCanvas");
-    const ctx = canvas.getContext("2d");
-    const WIDTH = canvas.width;
-    const HEIGHT = canvas.height;const player = {
+    const engineSound = new Audio("bgm.mp3");
+    engineSound.loop = true;const musicBGM = new Audio("music.mp3");
+musicBGM.loop = true;
+function playJumpSound() {
+  const sound = new Audio("jump.mp3");
+  sound.play();
+}
+const canvas = document.getElementById("gameCanvas");
+const ctx = canvas.getContext("2d");
+const WIDTH = canvas.width;
+const HEIGHT = canvas.height;
+
+const player = {
   x: WIDTH / 2 - 30,
   y: HEIGHT - 120,
   width: 60,
@@ -249,7 +252,8 @@ function gameLoop() {
   requestAnimationFrame(gameLoop);
 }
 
-bgm.play();
+engineSound.play();
+musicBGM.play();
 gameLoop();
 
   </script>
