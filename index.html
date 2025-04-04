@@ -35,7 +35,10 @@
   <script>
     const bgm = new Audio("bgm.mp3");
     bgm.loop = true;
-    const jumpSound = new Audio("jump.mp3");
+    function playJumpSound() {
+      const sound = new Audio("jump.mp3");
+      sound.play();
+    }
     const canvas = document.getElementById("gameCanvas");
     const ctx = canvas.getContext("2d");
     const WIDTH = canvas.width;
@@ -108,7 +111,7 @@ function jump() {
   onRight = !onRight;
   updatePlayerPosition(onRight ? rightX : leftX);
   player.hasJumped = true;
-  jumpSound.play();
+  playJumpSound();
 }
 
 document.getElementById("jumpBtn").addEventListener("click", jump);
