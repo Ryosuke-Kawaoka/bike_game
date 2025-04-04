@@ -1,5 +1,4 @@
-<!DOCTYPE html>
-<html lang="ja">
+<!DOCTYPE html><html lang="ja">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -34,218 +33,222 @@
     <div id="jumpBtn" class="btn">アクセル！</div>
   </div>
   <script>
+    const bgm = new Audio("bgm.mp3");
+    bgm.loop = true;
+    const jumpSound = new Audio("jump.mp3");
     const canvas = document.getElementById("gameCanvas");
     const ctx = canvas.getContext("2d");
     const WIDTH = canvas.width;
-    const HEIGHT = canvas.height;
+    const HEIGHT = canvas.height;const player = {
+  x: WIDTH / 2 - 30,
+  y: HEIGHT - 120,
+  width: 60,
+  height: 100,
+  targetX: WIDTH / 2 - 30,
+  speed: 0,
+  isMoving: false,
+  moveDuration: 500,
+  moveStartTime: 0,
+  hasJumped: false
+};
 
-    const player = {
-      x: WIDTH / 2 - 30,
-      y: HEIGHT - 120,
-      width: 60,
-      height: 100,
-      targetX: WIDTH / 2 - 30,
-      speed: 0,
-      isMoving: false,
-      moveDuration: 500,
-      moveStartTime: 0,
-      hasJumped: false
-    };
+const obstacleWidth = 60;
+const obstacleHeight = 100;
+const obstacleSpeed = 3;
+const maxObstacles = 5;
+const obstacles = [];
 
-    const obstacleWidth = 60;
-    const obstacleHeight = 100;
-    const obstacleSpeed = 3;
-    const maxObstacles = 5;
-    const obstacles = [];
+const leftX = WIDTH / 2 - 70;
+const rightX = WIDTH / 2 + 20;
+const centerX = WIDTH / 2 - 30;
 
-    const leftX = WIDTH / 2 - 70;
-    const rightX = WIDTH / 2 + 20;
-    const centerX = WIDTH / 2 - 30;
+const roadImg = new Image();
+const bikeImg = new Image();
+const obstacleImg = new Image();
+const coneImg = new Image();
+roadImg.src = "road.png";
+bikeImg.src = "bike.png";
+obstacleImg.src = "obstacle.png";
+coneImg.src = "obstacle.png";
 
-    const roadImg = new Image();
-    const bikeImg = new Image();
-    const obstacleImg = new Image();
-    const coneImg = new Image();
-    roadImg.src = "road.png";
-    bikeImg.src = "bike.png";
-    obstacleImg.src = "obstacle.png";
-    coneImg.src = "obstacle.png";
+const startCones = [
+  { x: WIDTH / 2 - 90, y: -120, width: 60, height: 100 },
+  { x: WIDTH / 2 + 30, y: -120, width: 60, height: 100 }
+];
+const goalCones = [
+  { x: WIDTH / 2 - 90, y: -300, width: 60, height: 100 },
+  { x: WIDTH / 2 + 30, y: -300, width: 60, height: 100 }
+];
 
-    const startCones = [
-      { x: WIDTH / 2 - 90, y: -120, width: 60, height: 100 },
-      { x: WIDTH / 2 + 30, y: -120, width: 60, height: 100 }
-    ];
-    const goalCones = [
-      { x: WIDTH / 2 - 90, y: -300, width: 60, height: 100 },
-      { x: WIDTH / 2 + 30, y: -300, width: 60, height: 100 }
-    ];
+let gameOver = false;
+let onRight = false;
+let overlayText = "";
+let avoidedCount = 0;
+let canPlay = false;
+let gamePhase = "start";
 
-    let gameOver = false;
-    let onRight = false;
-    let overlayText = "";
-    let avoidedCount = 0;
-    let canPlay = false;
-    let gamePhase = "start";
+let bgY = 0;
+const scrollSpeed = 2;
 
-    let bgY = 0;
-    const scrollSpeed = 2;
+function showOverlay(text) {
+  overlayText = text;
+  setTimeout(() => { overlayText = ""; }, 1000);
+}
 
-    function showOverlay(text) {
-      overlayText = text;
-      setTimeout(() => { overlayText = ""; }, 1000);
-    }
+function updatePlayerPosition(toX) {
+  player.targetX = toX;
+  player.moveStartTime = performance.now();
+  player.isMoving = true;
+  const distance = player.targetX - player.x;
+  player.speed = distance / (player.moveDuration / 16.67);
+}
 
-    function updatePlayerPosition(toX) {
-      player.targetX = toX;
-      player.moveStartTime = performance.now();
-      player.isMoving = true;
-      const distance = player.targetX - player.x;
-      player.speed = distance / (player.moveDuration / 16.67);
-    }
+function jump() {
+  if (player.isMoving || gameOver || !canPlay || gamePhase !== "play") return;
+  onRight = !onRight;
+  updatePlayerPosition(onRight ? rightX : leftX);
+  player.hasJumped = true;
+  jumpSound.play();
+}
 
-    function jump() {
-      if (player.isMoving || gameOver || !canPlay || gamePhase !== "play") return;
-      onRight = !onRight;
-      updatePlayerPosition(onRight ? rightX : leftX);
+document.getElementById("jumpBtn").addEventListener("click", jump);
+
+function spawnAllObstacles() {
+  for (let i = 0; i < maxObstacles; i++) {
+    const x = WIDTH / 2 - obstacleWidth / 2;
+    const y = player.y - (obstacleSpeed * 60) - (i * obstacleSpeed * 60); // 1秒ずつ間隔をつけて出現
+    obstacles.push({ x, y, width: obstacleWidth, height: obstacleHeight, vy: obstacleSpeed, isChecked: false, index: i + 1 });
+  }
+}
+
+function isColliding(a, b) {
+  const ax = a.x + a.width / 2;
+  const ay = a.y + a.height / 2;
+  const bx = b.x + b.width / 2;
+  const by = b.y + b.height / 2;
+  const distance = Math.hypot(ax - bx, ay - by);
+  return distance < 40;
+}
+
+function updatePlayerMovement() {
+  if (!player.isMoving) return;
+  const elapsed = performance.now() - player.moveStartTime;
+  if (elapsed >= player.moveDuration) {
+    player.x = player.targetX;
+    player.isMoving = false;
+  } else {
+    player.x += player.speed;
+  }
+}
+
+function update() {
+  if (gameOver) return;
+
+  updatePlayerMovement();
+
+  if (gamePhase === "start") {
+    for (let cone of startCones) cone.y += scrollSpeed;
+    if (startCones[0].y > player.y) {
+      gamePhase = "play";
+      showOverlay("start!!");
+      updatePlayerPosition(rightX);
+      onRight = true;
       player.hasJumped = true;
+      canPlay = true;
+      spawnAllObstacles();
+    }
+  }
+
+  if (gamePhase === "goal") {
+    for (let cone of goalCones) cone.y += scrollSpeed;
+    if (!player.isMoving && player.x === centerX && goalCones[0].y > player.y) {
+      showOverlay("clear!!");
+      gameOver = true;
+      setTimeout(() => location.reload(), 1000);
+    }
+  }
+
+  for (let obs of obstacles) {
+    obs.y += obs.vy;
+
+    if (isColliding(player, obs)) {
+      gameOver = true;
+      showOverlay("miss!!");
+      setTimeout(() => location.reload(), 1000);
+      return;
     }
 
-    document.getElementById("jumpBtn").addEventListener("click", jump);
+    if (!obs.isChecked && obs.y > player.y - 10 && gamePhase === "play") {
+      obs.isChecked = true;
 
-    function spawnAllObstacles() {
-      for (let i = 0; i < maxObstacles; i++) {
-        const x = WIDTH / 2 - obstacleWidth / 2;
-        const y = player.y - (obstacleSpeed * 60) - (i * obstacleSpeed * 60); // 1秒ずつ間隔をつけて出現
-        obstacles.push({ x, y, width: obstacleWidth, height: obstacleHeight, vy: obstacleSpeed, isChecked: false, index: i + 1 });
-      }
-    }
-
-    function isColliding(a, b) {
-      const ax = a.x + a.width / 2;
-      const ay = a.y + a.height / 2;
-      const bx = b.x + b.width / 2;
-      const by = b.y + b.height / 2;
-      const distance = Math.hypot(ax - bx, ay - by);
-      return distance < 40;
-    }
-
-    function updatePlayerMovement() {
-      if (!player.isMoving) return;
-      const elapsed = performance.now() - player.moveStartTime;
-      if (elapsed >= player.moveDuration) {
-        player.x = player.targetX;
-        player.isMoving = false;
+      if (obs.index === 1) {
+        avoidedCount++;
+      } else if (!player.hasJumped) {
+        gameOver = true;
+        showOverlay("miss!!");
+        setTimeout(() => location.reload(), 1000);
+        return;
       } else {
-        player.x += player.speed;
+        avoidedCount++;
+        player.hasJumped = false;
+
+        if (avoidedCount === maxObstacles) {
+          gamePhase = "goal";
+          setTimeout(() => updatePlayerPosition(centerX), 600);
+          goalCones.forEach(cone => cone.y = obstacles[obstacles.length - 1].y - (obstacleSpeed * 60));
+        }
       }
     }
+  }
 
-    function update() {
-      if (gameOver) return;
+  while (obstacles.length > 0 && obstacles[0].y > HEIGHT) {
+    obstacles.shift();
+  }
+}
 
-      updatePlayerMovement();
+function draw() {
+  bgY += scrollSpeed;
+  if (bgY >= HEIGHT) bgY = 0;
+  ctx.drawImage(roadImg, 0, bgY - HEIGHT, WIDTH, HEIGHT);
+  ctx.drawImage(roadImg, 0, bgY, WIDTH, HEIGHT);
 
-      if (gamePhase === "start") {
-        for (let cone of startCones) cone.y += scrollSpeed;
-        if (startCones[0].y > player.y) {
-          gamePhase = "play";
-          showOverlay("start!!");
-          updatePlayerPosition(rightX);
-          onRight = true;
-          player.hasJumped = true;
-          canPlay = true;
-          spawnAllObstacles();
-        }
-      }
-
-      if (gamePhase === "goal") {
-        for (let cone of goalCones) cone.y += scrollSpeed;
-        if (!player.isMoving && player.x === centerX && goalCones[0].y > player.y) {
-          showOverlay("clear!!");
-          gameOver = true;
-          setTimeout(() => location.reload(), 1000);
-        }
-      }
-
-      for (let obs of obstacles) {
-        obs.y += obs.vy;
-
-        if (isColliding(player, obs)) {
-          gameOver = true;
-          showOverlay("miss!!");
-          setTimeout(() => location.reload(), 1000);
-          return;
-        }
-
-        if (!obs.isChecked && obs.y > player.y - 10 && gamePhase === "play") {
-          obs.isChecked = true;
-
-          if (obs.index === 1) {
-            avoidedCount++;
-          } else if (!player.hasJumped) {
-            gameOver = true;
-            showOverlay("miss!!");
-            setTimeout(() => location.reload(), 1000);
-            return;
-          } else {
-            avoidedCount++;
-            player.hasJumped = false;
-
-            if (avoidedCount === maxObstacles) {
-              gamePhase = "goal";
-              setTimeout(() => updatePlayerPosition(centerX), 600);
-              goalCones.forEach(cone => cone.y = obstacles[obstacles.length - 1].y - (obstacleSpeed * 60));
-            }
-          }
-        }
-      }
-
-      while (obstacles.length > 0 && obstacles[0].y > HEIGHT) {
-        obstacles.shift();
-      }
+  if (gamePhase === "start") {
+    for (let cone of startCones) {
+      ctx.drawImage(coneImg, cone.x, cone.y, cone.width, cone.height);
     }
+  }
 
-    function draw() {
-      bgY += scrollSpeed;
-      if (bgY >= HEIGHT) bgY = 0;
-      ctx.drawImage(roadImg, 0, bgY - HEIGHT, WIDTH, HEIGHT);
-      ctx.drawImage(roadImg, 0, bgY, WIDTH, HEIGHT);
-
-      if (gamePhase === "start") {
-        for (let cone of startCones) {
-          ctx.drawImage(coneImg, cone.x, cone.y, cone.width, cone.height);
-        }
-      }
-
-      if (gamePhase === "goal") {
-        for (let cone of goalCones) {
-          ctx.drawImage(coneImg, cone.x, cone.y, cone.width, cone.height);
-        }
-      }
-
-      ctx.drawImage(bikeImg, player.x, player.y, player.width, player.height);
-
-      for (let obs of obstacles) {
-        ctx.drawImage(obstacleImg, obs.x, obs.y, obs.width, obs.height);
-      }
-
-      if (overlayText) {
-        ctx.fillStyle = "rgba(0,0,0,0.7)";
-        ctx.fillRect(0, HEIGHT / 2 - 50, WIDTH, 100);
-        ctx.fillStyle = "white";
-        ctx.font = "bold 48px sans-serif";
-        ctx.textAlign = "center";
-        ctx.fillText(overlayText, WIDTH / 2, HEIGHT / 2 + 15);
-      }
+  if (gamePhase === "goal") {
+    for (let cone of goalCones) {
+      ctx.drawImage(coneImg, cone.x, cone.y, cone.width, cone.height);
     }
+  }
 
-    function gameLoop() {
-      update();
-      draw();
-      requestAnimationFrame(gameLoop);
-    }
+  ctx.drawImage(bikeImg, player.x, player.y, player.width, player.height);
 
-    gameLoop();
+  for (let obs of obstacles) {
+    ctx.drawImage(obstacleImg, obs.x, obs.y, obs.width, obs.height);
+  }
+
+  if (overlayText) {
+    ctx.fillStyle = "rgba(0,0,0,0.7)";
+    ctx.fillRect(0, HEIGHT / 2 - 50, WIDTH, 100);
+    ctx.fillStyle = "white";
+    ctx.font = "bold 48px sans-serif";
+    ctx.textAlign = "center";
+    ctx.fillText(overlayText, WIDTH / 2, HEIGHT / 2 + 15);
+  }
+}
+
+function gameLoop() {
+  update();
+  draw();
+  requestAnimationFrame(gameLoop);
+}
+
+bgm.play();
+gameLoop();
+
   </script>
 </body>
 </html>
