@@ -26,6 +26,35 @@
     }
     .btn:active { background: #555; }
   </style>
+  <style>
+    #titleScreen {
+      position: fixed;
+      top: 0; left: 0; width: 100%; height: 100%;
+      background: black;
+      color: white;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      font-family: sans-serif;
+      z-index: 20;
+    }
+    #titleScreen h1 {
+      font-size: 36px;
+      margin-bottom: 20px;
+    }
+    #startBtn {
+      font-size: 24px;
+      padding: 10px 30px;
+      background: #444;
+      color: white;
+      border: none;
+      border-radius: 8px;
+    }
+    #startBtn:active {
+      background: #666;
+    }
+  </style>
 </head>
 <body>
   <canvas id="gameCanvas" width="400" height="600"></canvas>
@@ -254,8 +283,21 @@ function gameLoop() {
 
 engineSound.play();
 musicBGM.play();
-gameLoop();
+document.getElementById("startBtn").addEventListener("click", () => {
+  document.getElementById("titleScreen").style.display = "none";
+  engineSound.play();
+  musicBGM.play();
+  gameLoop();
+});
 
   </script>
+  <div id="titleScreen">
+    <h1>アクセルワークトレーニング</h1>
+    <p style="max-width: 80%; text-align: center; margin-bottom: 20px; font-size: 16px;">
+      「アクセル」のボタンを押すと、バイクが左右に移動するよ！<br>
+      タイミングのいいアクセルワークで、検定合格を目指そう！
+    </p>
+    <button id="startBtn">スタート</button>
+  </div>
 </body>
 </html>
